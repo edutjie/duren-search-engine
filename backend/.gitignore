@@ -28,3 +28,10 @@ archive.zip
 
 # macOS
 .DS_Store
+
+# custom
+collections
+index
+dataset
+models
+cache
