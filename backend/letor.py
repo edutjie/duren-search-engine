@@ -21,10 +21,6 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def zero_dict():
-    return defaultdict(int)
-
-
 class LambdaMart:
     NUM_TOPICS = 200
 
@@ -53,13 +49,21 @@ class LambdaMart:
                 pkl.dump(bow_corpus, f)
 
         print("Init LSI Model...")
-        self.lsi_model = LsiModel(
-            bow_corpus, num_topics=self.NUM_TOPICS
-        )  # 200 latent topics
+        if os.path.exists("cache/lsi_model.pkl"):
+            with open("cache/lsi_model.pkl", "rb") as f:
+                self.lsi_model = pkl.load(f)
+        else:
+            self.lsi_model = LsiModel(
+                bow_corpus, num_topics=self.NUM_TOPICS
+            )  # 200 latent topics
+            with open("cache/lsi_model.pkl", "wb") as f:
+                pkl.dump(self.lsi_model, f)
 
         print("Init TF-IDF Vectorizer...")
         self.tfidf_vectorizer = TfidfVectorizer()
-        train_docs_df = pd.DataFrame(self.collections_docs.items(), columns=["id", "content"])
+        train_docs_df = pd.DataFrame(
+            self.collections_docs.items(), columns=["id", "content"]
+        )
         train_docs_df["content"] = train_docs_df["content"].str.join(" ")
         self.vectorized_train_docs = self.tfidf_vectorizer.fit_transform(
             train_docs_df["content"]
@@ -90,7 +94,7 @@ class LambdaMart:
         return res
 
     def load_qrels(self, qrel_file="train_qrels.txt", is_train=True) -> defaultdict:
-        qrels = defaultdict(zero_dict)
+        qrels = defaultdict(dict)
         with open(qrel_file, encoding="UTF8") as file:
             for line in file:
                 parts = line.strip().split()
@@ -200,7 +204,11 @@ class LambdaMart:
                 )
             # tambahkan satu negative (random sampling saja dari documents)
             self.train_dataset.append(
-                (train_queries[q_id], random.choice(list(self.collections_docs.values())), 0)
+                (
+                    train_queries[q_id],
+                    random.choice(list(self.collections_docs.values())),
+                    0,
+                )
             )
 
         assert sum(self.train_group_qid_count) == len(
@@ -350,9 +358,7 @@ if __name__ == "__main__":
 
     print("Loading test dataset...")
     test_qrels = letor.load_qrels("dataset/test.qrels", is_train=False)
-    test_queries = letor.load_docs(
-        "dataset/test.queries", is_id_int=False, is_raw=True
-    )
+    test_queries = letor.load_docs("dataset/test.queries", is_id_int=False, is_raw=True)
 
     BSBI_instance = BSBIIndex(
         data_dir="collections",

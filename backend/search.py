@@ -5,7 +5,7 @@ if __name__ == "__main__":
     # sebelumnya sudah dilakukan indexing
     # BSBIIndex hanya sebagai abstraksi untuk index tersebut
     BSBI_instance = BSBIIndex(
-        data_dir="dataset/collections",
+        data_dir="collections",
         postings_encoding=VBEPostings,
         output_dir="index",
     )
