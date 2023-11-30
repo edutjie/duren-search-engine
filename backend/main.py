@@ -5,6 +5,8 @@ from fastapi import BackgroundTasks, FastAPI
 import redis.asyncio as aioredis
 from dotenv import load_dotenv
 import pandas as pd
+from datetime import datetime
+from collections import defaultdict
 
 from bsbi import BSBIIndex
 from compression import VBEPostings
@@ -22,6 +24,7 @@ redis = aioredis.Redis(
     decode_responses=True,
 )
 ONE_DAY = 60 * 60 * 24
+ONE_WEEK = ONE_DAY * 7
 
 app = FastAPI()
 
@@ -44,6 +47,20 @@ async def set_cache(data, keys):
         json.dumps(data),
         ex=ONE_DAY,
     )
+
+
+async def set_history(device_id, query) -> None:
+    keys = f"history:{device_id}"
+    today = datetime.today()
+    cache = await redis.get(keys)
+    if cache:
+        history = json.loads(cache)
+    else:
+        history = defaultdict(list)
+    history[today.strftime("%Y-%m-%d")].append(
+        {"query": query, "time": datetime.now().strftime("%Y-%m-%d %H-%M-%S")}
+    )
+    await redis.set(keys, json.dumps(history), ex=ONE_WEEK)
 
 
 def get_documents(scores) -> list[models.Document]:
@@ -85,6 +102,7 @@ async def get_relevant_documents_tfidf(
     k: int = 100,
     page: int = 1,
     limit: int = 10,
+    device_id: str | None = None,
 ) -> models.PaginatedDocuments:
     # check if cache exists
     keys = f"tfidf:{query}-k:{k}-limit:{limit}"
@@ -118,6 +136,10 @@ async def get_relevant_documents_tfidf(
                 # save to cache
                 background_tasks.add_task(set_cache, documents, keys)
 
+    if device_id:
+        # save to history
+        await set_history(device_id, query)
+
     return paginate(documents, page, limit)
 
 
@@ -129,6 +151,7 @@ async def get_relevant_documents_bm25(
     k: int = 100,
     page: int = 1,
     limit: int = 10,
+    device_id: str | None = None,
 ) -> models.PaginatedDocuments:
     # check if cache exists
     keys = f"bm25:{query}-k:{k}-limit:{limit}"
@@ -162,6 +185,10 @@ async def get_relevant_documents_bm25(
                 # save to cache
                 background_tasks.add_task(set_cache, documents, keys)
 
+    if device_id:
+        # save to history
+        set_history(device_id, query)
+
     return paginate(documents, page, limit)
 
 
@@ -185,12 +212,30 @@ async def get_related_documents(
     k: int = 10,
     page: int = 1,
     limit: int = 10,
+    device_id: str | None = None,
 ) -> models.PaginatedDocuments:
     collection, did = doc_id.split("-")
     doc_path = os.path.join("collections", collection, f"{did}.txt")
     with open(doc_path, "r", encoding="UTF8") as f:
         title, content = f.read().split("\t", 1)
         query = title + " " + content
-    documents = await get_relevant_documents_tfidf(background_tasks, query, is_letor=False, k=k, page=page, limit=limit)
-    documents["data"].pop(0) # remove the first document (itself)
+    documents = await get_relevant_documents_tfidf(
+        background_tasks,
+        query,
+        is_letor=False,
+        k=k,
+        page=page,
+        limit=limit,
+        device_id=device_id,
+    )
+    documents["data"].pop(0)  # remove the first document (itself)
     return documents
+
+
+@app.get("/history")
+async def get_search_history(device_id: str):
+    keys = f"history:{device_id}"
+    history = await redis.get(keys)
+    if history:
+        return {"data": json.loads(history)}
+    return {"data": []}
