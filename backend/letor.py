@@ -5,7 +5,7 @@ from gensim.corpora import Dictionary
 from scipy.spatial.distance import cosine
 import lightgbm as lgb
 import numpy as np
-from sklearn.metrics import ndcg_score, dcg_score
+from sklearn.metrics import ndcg_score
 from nltk.stem.snowball import SnowballStemmer
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -60,14 +60,26 @@ class LambdaMart:
                 pkl.dump(self.lsi_model, f)
 
         print("Init TF-IDF Vectorizer...")
-        self.tfidf_vectorizer = TfidfVectorizer()
-        train_docs_df = pd.DataFrame(
-            self.collections_docs.items(), columns=["id", "content"]
-        )
-        train_docs_df["content"] = train_docs_df["content"].str.join(" ")
-        self.vectorized_train_docs = self.tfidf_vectorizer.fit_transform(
-            train_docs_df["content"]
-        )
+        if os.path.exists("cache/tfidf_vectorizer.pkl") and os.path.exists(
+            "cache/vectorized_train_docs.pkl"
+        ):
+            with open("cache/tfidf_vectorizer.pkl", "rb") as f:
+                self.tfidf_vectorizer = pkl.load(f)
+            with open("cache/vectorized_train_docs.pkl", "rb") as f:
+                self.vectorized_train_docs = pkl.load(f)
+        else:
+            self.tfidf_vectorizer = TfidfVectorizer()
+            train_docs_df = pd.DataFrame(
+                self.collections_docs.items(), columns=["id", "content"]
+            )
+            train_docs_df["content"] = train_docs_df["content"].str.join(" ")
+            self.vectorized_train_docs = self.tfidf_vectorizer.fit_transform(
+                train_docs_df["content"]
+            )
+            with open("cache/tfidf_vectorizer.pkl", "wb") as f:
+                pkl.dump(self.tfidf_vectorizer, f)
+            with open("cache/vectorized_train_docs.pkl", "wb") as f:
+                pkl.dump(self.vectorized_train_docs, f)
 
         print("Init LGBM Ranker Model...")
         self.ranker = lgb.LGBMRanker(
@@ -155,77 +167,76 @@ class LambdaMart:
             with open("cache/collections_docs.pkl", "wb") as f:
                 pkl.dump(self.collections_docs, f)
 
-        if os.path.exists("cache/train_queries.pkl"):
-            with open("cache/train_queries.pkl", "rb") as f:
-                train_queries = pkl.load(f)
+        # group_qid_count untuk model LGBMRanker
+        if os.path.exists("cache/train_group_qid_count.pkl") and os.path.exists(
+            "cache/train_dataset.pkl"
+        ):
+            with open("cache/train_group_qid_count.pkl", "rb") as f:
+                self.train_group_qid_count = pkl.load(f)
+            with open("cache/train_dataset.pkl", "rb") as f:
+                self.train_dataset = pkl.load(f)
         else:
             train_queries = self.load_docs(
                 os.path.join(self.dataset_dir, train_queries_file), is_id_int=False
             )
-            with open("cache/train_queries.pkl", "wb") as f:
-                pkl.dump(train_queries, f)
-
-        if os.path.exists("cache/train_qrels.pkl"):
-            with open("cache/train_qrels.pkl", "rb") as f:
-                train_qrels = pkl.load(f)
-        else:
             train_qrels = self.load_qrels(
                 os.path.join(self.dataset_dir, train_qrels_file)
             )
-            with open("cache/train_qrels.pkl", "wb") as f:
-                pkl.dump(train_qrels, f)
-
-        if os.path.exists("cache/val_queries.pkl"):
-            with open("cache/val_queries.pkl", "rb") as f:
-                val_queries = pkl.load(f)
-        else:
             val_queries = self.load_docs(
                 os.path.join(self.dataset_dir, val_queries_file), is_id_int=False
             )
-            with open("cache/val_queries.pkl", "wb") as f:
-                pkl.dump(val_queries, f)
-
-        if os.path.exists("cache/val_qrels.pkl"):
-            with open("cache/val_qrels.pkl", "rb") as f:
-                val_qrels = pkl.load(f)
-        else:
             val_qrels = self.load_qrels(os.path.join(self.dataset_dir, val_qrels_file))
-            with open("cache/val_qrels.pkl", "wb") as f:
-                pkl.dump(val_qrels, f)
 
-        # group_qid_count untuk model LGBMRanker
-        self.train_group_qid_count = []
-        self.train_dataset = []
-        for q_id, docs_rels in train_qrels.items():
-            self.train_group_qid_count.append(len(docs_rels) + num_negatives)
-            for doc_id, rel in docs_rels.items():
+            self.train_group_qid_count = []
+            self.train_dataset = []
+            for q_id, docs_rels in train_qrels.items():
+                self.train_group_qid_count.append(len(docs_rels) + num_negatives)
+                for doc_id, rel in docs_rels.items():
+                    self.train_dataset.append(
+                        (train_queries[q_id], self.collections_docs[doc_id], rel)
+                    )
+                # tambahkan satu negative (random sampling saja dari documents)
                 self.train_dataset.append(
-                    (train_queries[q_id], self.collections_docs[doc_id], rel)
+                    (
+                        train_queries[q_id],
+                        random.choice(list(self.collections_docs.values())),
+                        0,
+                    )
                 )
-            # tambahkan satu negative (random sampling saja dari documents)
-            self.train_dataset.append(
-                (
-                    train_queries[q_id],
-                    random.choice(list(self.collections_docs.values())),
-                    0,
-                )
-            )
 
-        assert sum(self.train_group_qid_count) == len(
-            self.train_dataset
-        ), "Something's wrong"
+            assert sum(self.train_group_qid_count) == len(
+                self.train_dataset
+            ), "Something's wrong"
 
-        self.val_group_qid_count = []
-        self.val_dataset = []
-        for q_id, docs_rels in val_qrels.items():
-            self.val_group_qid_count.append(len(docs_rels))
-            for doc_id, rel in docs_rels.items():
-                doc = self.collections_docs[doc_id]
-                self.val_dataset.append((val_queries[q_id], doc, rel))
+            with open("cache/train_group_qid_count.pkl", "wb") as f:
+                pkl.dump(self.train_group_qid_count, f)
+            with open("cache/train_dataset.pkl", "wb") as f:
+                pkl.dump(self.train_dataset, f)
 
-        assert sum(self.val_group_qid_count) == len(
-            self.val_dataset
-        ), "Something's wrong"
+        if os.path.exists("cache/val_group_qid_count.pkl") and os.path.exists(
+            "cache/val_dataset.pkl"
+        ):
+            with open("cache/val_group_qid_count.pkl", "rb") as f:
+                self.val_group_qid_count = pkl.load(f)
+            with open("cache/val_dataset.pkl", "rb") as f:
+                self.val_dataset = pkl.load(f)
+        else:
+            self.val_group_qid_count = []
+            self.val_dataset = []
+            for q_id, docs_rels in val_qrels.items():
+                self.val_group_qid_count.append(len(docs_rels))
+                for doc_id, rel in docs_rels.items():
+                    doc = self.collections_docs[doc_id]
+                    self.val_dataset.append((val_queries[q_id], doc, rel))
+
+            assert sum(self.val_group_qid_count) == len(
+                self.val_dataset
+            ), "Something's wrong"
+
+            with open("cache/val_group_qid_count.pkl", "wb") as f:
+                pkl.dump(self.val_group_qid_count, f)
+            with open("cache/val_dataset.pkl", "wb") as f:
+                pkl.dump(self.val_dataset, f)
 
         return self.train_dataset, self.val_dataset
 
@@ -315,24 +326,21 @@ class LambdaMart:
     def predict_proba(self, X) -> list:
         return self.ranker.predict_proba(X)
 
-    # def self_evaluate(self) -> float:
-    #     X_val = self.X_val
-    #     y_val = self.y_val
-    #     score = 0
-    #     for i in self.val_group_qid_count:
-    #         curr_X = X_val[:i]
-    #         curr_y = y_val[:i]
-    #         score += self.evaluate(curr_X, curr_y)
-    #         X_val = X_val[i:]
-    #         y_val = y_val[i:]
-    #     return score / len(self.val_group_qid_count)
+    def self_evaluate(self) -> float:
+        X_val = self.X_val
+        y_val = self.y_val
+        score = 0
+        for i in self.val_group_qid_count:
+            curr_X = X_val[:i]
+            curr_y = y_val[:i]
+            score += self.evaluate(curr_X, curr_y)
+            X_val = X_val[i:]
+            y_val = y_val[i:]
+        return score / len(self.val_group_qid_count)
 
-    # def evaluate(self, X, y) -> float:
-    #     y_pred = self.predict(X)
-    #     if len(y) > 1:
-    #         return ndcg_score([y], [y_pred])
-    #     else:
-    #         return dcg_score([y], [y_pred])
+    def evaluate(self, X, y) -> float:
+        y_pred = self.predict(X)
+        return ndcg_score([y], [y_pred])
 
     def rerank(self, query: str, retrieved_df: pd.DataFrame) -> list[(int, int)]:
         X = []
@@ -354,7 +362,7 @@ if __name__ == "__main__":
     letor.fit()
     ranker = letor.get_model()
     print("Best Validation Score:", ranker.best_score_.get("valid_0"))
-    # print("nDCG@all Evaluation Dataset:", letor.self_evaluate())
+    print("nDCG@all Evaluation Dataset:", letor.self_evaluate())
 
     print("Loading test dataset...")
     test_qrels = letor.load_qrels("dataset/test.qrels", is_train=False)
@@ -376,8 +384,6 @@ if __name__ == "__main__":
         reranked_tfidfs = []
         for qid, query in tqdm(test_queries.items()):
             tfidf_raw = BSBI_instance.retrieve_tfidf(query, k=100)
-            if len(tfidf_raw) == 0:
-                continue
             tfidf_df = pd.DataFrame(tfidf_raw, columns=["score", "doc_path"])
             tfidf_df["doc_id"] = tfidf_df["doc_path"].apply(
                 lambda x: int(x.split("\\")[-1].removesuffix(".txt"))

@@ -4,7 +4,7 @@ from bsbi import BSBIIndex
 from compression import VBEPostings
 from tqdm import tqdm
 import math
-from letor import LambdaMart, zero_dict
+from letor import LambdaMart
 import pandas as pd
 
 # >>>>> 3 IR metrics: RBP p = 0.8, DCG, dan AP
@@ -182,7 +182,7 @@ def eval_retrieval(qrels, query_file="queries.txt", k=1000):
     letor = LambdaMart(dataset_dir="dataset/qrels-folder/")
     letor.fit()
 
-    with open(query_file) as file:
+    with open(query_file, encoding="UTF8") as file:
         rbp_scores_tfidf = []
         dcg_scores_tfidf = []
         ap_scores_tfidf = []
@@ -257,15 +257,10 @@ def eval_retrieval(qrels, query_file="queries.txt", k=1000):
 
             if len(tfidf_raw) > 0:
                 tfidf_df = pd.DataFrame(tfidf_raw, columns=["score", "doc_path"])
-                tfidf_df["doc_id"] = tfidf_df["doc_path"].apply(
-                    lambda x: int(os.path.splitext(os.path.basename(x))[0])
-                )
                 reranked_tfidf = letor.rerank(query, tfidf_df)
                 ranking_tfidf = []
                 for _, doc in reranked_tfidf:
                     did = int(os.path.splitext(os.path.basename(doc))[0])
-                    if qid not in qrels:
-                        continue
                     if did in qrels[qid]:
                         ranking_tfidf.append(1)
                     else:
@@ -277,15 +272,10 @@ def eval_retrieval(qrels, query_file="queries.txt", k=1000):
 
             if len(bm25_raw) > 0:
                 bm25_df = pd.DataFrame(bm25_raw, columns=["score", "doc_path"])
-                bm25_df["doc_id"] = bm25_df["doc_path"].apply(
-                    lambda x: int(os.path.splitext(os.path.basename(x))[0])
-                )
                 reranked_bm25 = letor.rerank(query, bm25_df)
                 ranking_bm25 = []
                 for _, doc in reranked_bm25:
                     did = int(os.path.splitext(os.path.basename(doc))[0])
-                    if qid not in qrels:
-                        continue
                     if did in qrels[qid]:
                         ranking_bm25.append(1)
                     else:

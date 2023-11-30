@@ -1,5 +1,6 @@
 import json
 import os
+import math
 from fastapi import BackgroundTasks, FastAPI
 import redis.asyncio as aioredis
 from dotenv import load_dotenv
@@ -8,7 +9,7 @@ import pandas as pd
 from bsbi import BSBIIndex
 from compression import VBEPostings
 from letor import LambdaMart
-from collections import defaultdict
+import models
 
 
 load_dotenv()
@@ -44,40 +45,113 @@ async def set_cache(data, keys):
     )
 
 
+def get_documents(scores) -> list[models.Document]:
+    documents = []
+    for score, doc_path in scores:
+        with open(doc_path, "r", encoding="UTF8") as f:
+            title, text = f.read().split("\t", 1)
+            did = int(os.path.splitext(os.path.basename(doc_path))[0])
+            trim = min(len(text) // 2, 30)
+            documents.append(
+                {
+                    "id": did,
+                    "title": title,
+                    "preview": text[:trim] + "...",
+                    "score": score,
+                }
+            )
+    return documents
+
+
+def paginate(data, page, limit) -> models.PaginatedDocuments:
+    page = 1 if page < 1 else page
+    last_page = math.ceil(len(data) / limit)
+    return {
+        "current_page": page,
+        "last_page": 1 if last_page == 0 else last_page,
+        "per_page": limit,
+        "total": len(data),
+        "data": data[(page - 1) * limit : page * limit],
+    }
+
+
 @app.get("/search/tfidf")
-async def get_relevant_documents(
+async def get_relevant_documents_tfidf(
     background_tasks: BackgroundTasks,
     query: str,
     is_letor: bool = True,
+    k: int = 100,
     page: int = 1,
-    limit: int = 100,
-):
+    limit: int = 10,
+) -> models.PaginatedDocuments:
     # check if cache exists
-    keys = f"tfidf:{query}"
+    keys = f"tfidf:{query}-k:{k}-limit:{limit}"
     cache = await redis.get(keys)
     if cache:
-        tfid_scores = json.loads(cache)
+        documents = json.loads(cache)
     else:
-        tfid_scores = BSBI_instance.retrieve_tfidf(query, k=limit)  # [(score, doc_id)]
-        # convert to dict
-        tfid_scores = [{"score": score, "doc_path": did} for score, did in tfid_scores]
+        tfid_scores = BSBI_instance.retrieve_tfidf(query, k=k)  # [(score, doc_id)]
+
+        # convert to docs
+        documents = get_documents(tfid_scores)
 
         # save to cache
-        background_tasks.add_task(set_cache, tfid_scores, keys)
+        background_tasks.add_task(set_cache, documents, keys)
 
     if is_letor:
-        keys = f"tfidf-letor:{query}"
+        keys = f"tfidf-letor:{query}-k:{k}-limit:{limit}"
         cache = await redis.get(keys)
         if cache:
-            tfid_scores = json.loads(cache)
+            documents = json.loads(cache)
         else:
-            tfidf_df = pd.DataFrame(tfid_scores)
-            tfidf_df["doc_id"] = tfidf_df["doc_path"].apply(
-                lambda x: int(x.split("\\")[-1].removesuffix(".txt"))
-            )
+            tfidf_df = pd.DataFrame(tfid_scores, columns=["score", "doc_path"])
             tfid_scores = letor.rerank(query, tfidf_df)
 
-            # save to cache
-            background_tasks.add_task(set_cache, tfid_scores, keys)
+            # convert to docs
+            documents = get_documents(tfid_scores)
 
-    return tfid_scores
+            # save to cache
+            background_tasks.add_task(set_cache, documents, keys)
+
+    return paginate(documents, page, limit)
+
+
+@app.get("/search/bm25")
+async def get_relevant_documents_bm25(
+    background_tasks: BackgroundTasks,
+    query: str,
+    is_letor: bool = True,
+    k: int = 100,
+    page: int = 1,
+    limit: int = 10,
+) -> models.PaginatedDocuments:
+    # check if cache exists
+    keys = f"bm25:{query}-k:{k}-limit:{limit}"
+    cache = await redis.get(keys)
+    if cache:
+        documents = json.loads(cache)
+    else:
+        bm25_scores = BSBI_instance.retrieve_bm25(query, k=k)  # [(score, doc_id)]
+
+        # convert to dict
+        documents = get_documents(bm25_scores)
+
+        # save to cache
+        background_tasks.add_task(set_cache, documents, keys)
+
+    if is_letor:
+        keys = f"bm25-letor:{query}-k:{k}-limit:{limit}"
+        cache = await redis.get(keys)
+        if cache:
+            documents = json.loads(cache)
+        else:
+            bm25_df = pd.DataFrame(bm25_scores, columns=["score", "doc_path"])
+            bm25_scores = letor.rerank(query, bm25_df)
+
+            # convert to docs
+            documents = get_documents(bm25_scores)
+
+            # save to cache
+            background_tasks.add_task(set_cache, documents, keys)
+
+    return paginate(documents, page, limit)

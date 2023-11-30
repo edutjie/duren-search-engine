@@ -13,8 +13,8 @@ if __name__ == "__main__":
     BSBI_instance.load()
 
     queries = [
-        "viral disease",
-        "chabad",
+        "batman film",
+        "beautiful sea",
     ]
     print("=== TF-IDF ===")
     for query in queries:
