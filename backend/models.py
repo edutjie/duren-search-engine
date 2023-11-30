@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class Document(BaseModel):
-    id: int
+    id: str
     title: str | None = None
     preview: str | None = None
     score: float | None = None

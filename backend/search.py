@@ -12,28 +12,30 @@ if __name__ == "__main__":
 
     BSBI_instance.load()
 
-    queries = [
-        "batman film",
-        "beautiful sea",
-    ]
-    print("=== TF-IDF ===")
-    for query in queries:
-        print("Query  : ", query)
-        print("Results:")
-        tfid_scores = BSBI_instance.retrieve_tfidf(query, k=100)
-        # with open("tfidf.pkl", "wb") as f:
-        #     pkl.dump(tfid_scores, f)
-        for score, doc in tfid_scores:
-            print(f"{doc:30} {score:>.3f}")
-        print()
+    print("DOC PATH", BSBI_instance.doc_id_map[451670])
 
-    print("=== BM25 ===")
-    for query in queries:
-        print("Query  : ", query)
-        print("Results:")
-        bm25_scores = BSBI_instance.retrieve_bm25(query, k=100)
-        # with open("bm25.pkl", "wb") as f:
-        #     pkl.dump(bm25_scores, f)
-        for score, doc in bm25_scores:
-            print(f"{doc:30} {score:>.3f}")
-        print()
+    # queries = [
+    #     "batman film",
+    #     "beautiful sea",
+    # ]
+    # print("=== TF-IDF ===")
+    # for query in queries:
+    #     print("Query  : ", query)
+    #     print("Results:")
+    #     tfid_scores = BSBI_instance.retrieve_tfidf(query, k=100)
+    #     # with open("tfidf.pkl", "wb") as f:
+    #     #     pkl.dump(tfid_scores, f)
+    #     for score, doc in tfid_scores:
+    #         print(f"{doc:30} {score:>.3f}")
+    #     print()
+
+    # print("=== BM25 ===")
+    # for query in queries:
+    #     print("Query  : ", query)
+    #     print("Results:")
+    #     bm25_scores = BSBI_instance.retrieve_bm25(query, k=100)
+    #     # with open("bm25.pkl", "wb") as f:
+    #     #     pkl.dump(bm25_scores, f)
+    #     for score, doc in bm25_scores:
+    #         print(f"{doc:30} {score:>.3f}")
+    #     print()

@@ -19,6 +19,7 @@ redis = aioredis.Redis(
     host=os.environ.get("REDIS_HOST"),
     port=os.environ.get("REDIS_PORT"),
     password=os.environ.get("REDIS_PASSWORD"),
+    decode_responses=True,
 )
 ONE_DAY = 60 * 60 * 24
 
@@ -51,10 +52,11 @@ def get_documents(scores) -> list[models.Document]:
         with open(doc_path, "r", encoding="UTF8") as f:
             title, text = f.read().split("\t", 1)
             did = int(os.path.splitext(os.path.basename(doc_path))[0])
+            collection = os.path.basename(os.path.dirname(doc_path))
             trim = min(len(text) // 2, 30)
             documents.append(
                 {
-                    "id": did,
+                    "id": f"{collection}-{did}",
                     "title": title,
                     "preview": text[:trim] + "...",
                     "score": score,
@@ -104,14 +106,17 @@ async def get_relevant_documents_tfidf(
         if cache:
             documents = json.loads(cache)
         else:
-            tfidf_df = pd.DataFrame(tfid_scores, columns=["score", "doc_path"])
-            tfid_scores = letor.rerank(query, tfidf_df)
+            if len(tfid_scores) == 0:
+                documents = []
+            else:
+                tfidf_df = pd.DataFrame(tfid_scores, columns=["score", "doc_path"])
+                tfid_scores = letor.rerank(query, tfidf_df)
 
-            # convert to docs
-            documents = get_documents(tfid_scores)
+                # convert to docs
+                documents = get_documents(tfid_scores)
 
-            # save to cache
-            background_tasks.add_task(set_cache, documents, keys)
+                # save to cache
+                background_tasks.add_task(set_cache, documents, keys)
 
     return paginate(documents, page, limit)
 
@@ -145,13 +150,47 @@ async def get_relevant_documents_bm25(
         if cache:
             documents = json.loads(cache)
         else:
-            bm25_df = pd.DataFrame(bm25_scores, columns=["score", "doc_path"])
-            bm25_scores = letor.rerank(query, bm25_df)
+            if len(bm25_scores) == 0:
+                documents = []
+            else:
+                bm25_df = pd.DataFrame(bm25_scores, columns=["score", "doc_path"])
+                bm25_scores = letor.rerank(query, bm25_df)
 
-            # convert to docs
-            documents = get_documents(bm25_scores)
+                # convert to docs
+                documents = get_documents(bm25_scores)
 
-            # save to cache
-            background_tasks.add_task(set_cache, documents, keys)
+                # save to cache
+                background_tasks.add_task(set_cache, documents, keys)
 
     return paginate(documents, page, limit)
+
+
+@app.get("/document/{doc_id}")
+def get_document_detail(doc_id: str) -> models.DocumentDetail:
+    collection, did = doc_id.split("-")
+    doc_path = os.path.join("collections", collection, f"{did}.txt")
+    with open(doc_path, "r", encoding="UTF8") as f:
+        title, content = f.read().split("\t", 1)
+        return {
+            "id": doc_id,
+            "title": title,
+            "content": content,
+        }
+
+
+@app.get("/related/{doc_id}")
+async def get_related_documents(
+    background_tasks: BackgroundTasks,
+    doc_id: str,
+    k: int = 10,
+    page: int = 1,
+    limit: int = 10,
+) -> models.PaginatedDocuments:
+    collection, did = doc_id.split("-")
+    doc_path = os.path.join("collections", collection, f"{did}.txt")
+    with open(doc_path, "r", encoding="UTF8") as f:
+        title, content = f.read().split("\t", 1)
+        query = title + " " + content
+    documents = await get_relevant_documents_tfidf(background_tasks, query, is_letor=False, k=k, page=page, limit=limit)
+    documents["data"].pop(0) # remove the first document (itself)
+    return documents
