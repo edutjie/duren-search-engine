@@ -6,6 +6,7 @@ from scipy.spatial.distance import cosine
 import lightgbm as lgb
 import numpy as np
 from sklearn.metrics import ndcg_score
+import nltk
 from nltk.stem.snowball import SnowballStemmer
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -19,6 +20,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import warnings
 
 warnings.filterwarnings("ignore")
+nltk.download('stopwords')
+nltk.download('punkt')
 
 
 class LambdaMart:

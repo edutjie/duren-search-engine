@@ -10,10 +10,13 @@ from compression import VBEPostings
 from tqdm import tqdm
 
 # NLP Libraries
+import nltk
 from nltk.stem.snowball import SnowballStemmer
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 
+nltk.download('stopwords')
+nltk.download('punkt')
 
 class BSBIIndex:
     """
