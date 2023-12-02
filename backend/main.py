@@ -2,6 +2,7 @@ import json
 import os
 import math
 from fastapi import BackgroundTasks, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as aioredis
 from dotenv import load_dotenv
 import pandas as pd
@@ -27,6 +28,14 @@ ONE_DAY = 60 * 60 * 24
 ONE_WEEK = ONE_DAY * 7
 
 app = FastAPI()
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 letor = LambdaMart(dataset_dir="dataset/")
 letor.fit()
