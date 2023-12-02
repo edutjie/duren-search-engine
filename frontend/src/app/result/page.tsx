@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import {
@@ -10,11 +10,20 @@ import {
   Container,
 } from "../../components/elements";
 import { Pagination } from "@mui/material";
+import axios from "axios";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function Result() {
   const [dateTime, setDateTime] = useState(new Date());
   const [searchValue, setSearchValue] = useState("");
   const [methodValue, setMethodValue] = useState("");
+  const [searchResult, setSearchResult] = useState([]);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const methodGiven = searchParams.get("method");
+  const queryGiven = searchParams.get("query");
+  let pageGiven = "1";
 
   const hour = dateTime.getHours();
   let greeting;
@@ -43,11 +52,92 @@ export default function Result() {
     setMethodValue(selectedMethod);
   };
 
+  const createQueryString = useCallback(
+    (name: string, value: string) => {
+      const params = new URLSearchParams(searchParams);
+      params.set(name, value);
+
+      return params.toString();
+    },
+    [searchParams]
+  );
+
+  const handleSearchClick = () => {
+    try {
+      const sanitizedMethod = methodValue.replace(/-/g, "");
+      const lowercaseMethod = sanitizedMethod.toLowerCase();
+
+      router.push(
+        "/result" +
+          "?" +
+          createQueryString("query", searchValue) +
+          "&" +
+          createQueryString("method", lowercaseMethod)
+      );
+    } catch (error) {
+      // Handle errors
+      console.error("Search error:", error);
+    }
+  };
+
+  const handleSearchResult = async () => {
+    if (methodGiven) {
+      try {
+        if (methodGiven.includes("+")) {
+          const substring = methodGiven.split("+");
+          const method = substring[0];
+          const response = await axios.get(
+            `http://35.219.64.188/search/${method}`,
+            {
+              params: {
+                query: queryGiven,
+                is_letor: true,
+                page: pageGiven,
+              },
+            }
+          );
+          setSearchResult(response.data.data);
+          console.log("Search success:", response.data);
+        } else {
+          const response = await axios.get(
+            `http://35.219.64.188/search/${methodGiven}`,
+            {
+              params: {
+                query: queryGiven,
+                is_letor: false,
+                page: pageGiven,
+              },
+            }
+          );
+          setSearchResult(response.data.data);
+          console.log("Search success:", response.data);
+        }
+      } catch (error) {
+        // Handle errors
+        console.error("Search error:", error);
+      }
+    } else {
+      console.log("Search error: No method given");
+    }
+  };
+
+  useEffect(() => {
+    handleSearchResult();
+  }, []);
+
+  const handlePaginationChange = (
+    event: React.ChangeEvent<unknown>,
+    value: number
+  ) => {
+    pageGiven = value.toString();
+    handleSearchResult();
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-start gap-5 bg-primary">
       <div className="relative flex flex-col gap-4 items-center justify-center my-12 w-[90%]">
         <div className="flex gap-4 items-center w-full">
-          <div className="w-min-[700px] flex flex-col items-end">
+          <div className="w-[15%] flex flex-col items-end">
             <div
               className="w-fit text-4xl text-primaryText font-extrabold text-right"
               suppressHydrationWarning
@@ -90,7 +180,9 @@ export default function Result() {
                   strokeWidth="2"
                 />
               </svg>
-              <Button className="py-2 px-5">Search</Button>
+              <Button className="py-2 px-5" onClick={handleSearchClick}>
+                Search
+              </Button>
             </div>
           </div>
         </div>
@@ -107,7 +199,7 @@ export default function Result() {
           </svg>
         </div>
 
-        <div className="w-full flex text-sm items-center text-stone-400 ">
+        <div className="w-full flex text-sm items-center justify-center text-stone-400 ">
           <div>100 documents are retrieved in 0.0001 seconds.</div>
           <Image
             src="/CradrenFast.svg"
@@ -116,11 +208,26 @@ export default function Result() {
             height={70}
           ></Image>
         </div>
-        <div>
-          <Container className="w-[70%]"></Container>
+        <div className="flex flex-col w-full justify-center items-center gap-4">
+          {searchResult.map((result, index) => (
+            <div className="flex w-[70%] gap-4" key={index}>
+              <Container className="flex w-full">
+                <div className="text-primaryText text-base font-bold">
+                  {result.title}
+                </div>
+                <div className="line-clamp-3 text-stone-400 text-sm font-normal">
+                  {result.preview}
+                </div>
+              </Container>
+            </div>
+          ))}
         </div>
         <div className="relative top-4">
-          <Pagination count={10} shape="rounded" />
+          <Pagination
+            count={10}
+            shape="rounded"
+            onChange={handlePaginationChange}
+          />
         </div>
       </div>
     </main>

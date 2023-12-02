@@ -17,6 +17,7 @@
     "@tanstack/query-core": "^5.10.0",
     "@tanstack/react-query": "^5.10.0",
     "@tanstack/react-query-devtools": "^5.10.0",
+    "axios": "^1.6.2",
     "next": "14.0.3",
     "query-core": "^0.1.30",
     "react": "^18.2.0",
