@@ -1,17 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Button, TextField, Dropdown } from "../components/elements";
+import axios from "axios";
 
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [dateTime, setDateTime] = useState(new Date());
   const [searchValue, setSearchValue] = useState("");
   const [methodValue, setMethodValue] = useState("");
 
   const hour = dateTime.getHours();
-  let greeting;
+  let greeting: string;
 
   if (hour >= 5 && hour < 12) {
     greeting = "Good Morning";
@@ -35,6 +39,34 @@ export default function Home() {
 
   const handleMethodChange = (selectedMethod: string) => {
     setMethodValue(selectedMethod);
+  };
+
+  const createQueryString = useCallback(
+    (name: string, value: string) => {
+      const params = new URLSearchParams(searchParams);
+      params.set(name, value);
+
+      return params.toString();
+    },
+    [searchParams]
+  );
+
+  const handleSearchClick = async () => {
+    try {
+      const sanitizedMethod = methodValue.replace(/-/g, "");
+      const lowercaseMethod = sanitizedMethod.toLowerCase();
+
+      router.push(
+        "/result" +
+          "?" +
+          createQueryString("query", searchValue) +
+          "&" +
+          createQueryString("method", lowercaseMethod)
+      );
+    } catch (error) {
+      // Handle errors
+      console.error("Search error:", error);
+    }
   };
 
   return (
@@ -90,7 +122,9 @@ export default function Home() {
                 strokeWidth="2"
               />
             </svg>
-            <Button className="py-2 px-5">Search</Button>
+            <Button className="py-2 px-5" onClick={handleSearchClick}>
+              Search
+            </Button>
           </div>
         </div>
       </div>
