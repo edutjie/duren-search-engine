@@ -81,7 +81,7 @@ export default function Home() {
 
   const handleHistory = async () => {
     try {
-      const response = await axios.get(`http://35.219.64.188/history`, {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/history`, {
         params: {
           device_id: localStorage.getItem("device_id"),
         },

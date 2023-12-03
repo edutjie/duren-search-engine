@@ -95,7 +95,7 @@ export default function Result() {
           const substring = methodGiven.split("+");
           const method = substring[0];
           const response = await axios.get(
-            `http://35.219.64.188/search/${method}`,
+            `${process.env.NEXT_PUBLIC_API_URL}/search/${method}`,
             {
               params: {
                 query: queryGiven,
@@ -110,7 +110,7 @@ export default function Result() {
           console.log("Search success:", response.data);
         } else {
           const response = await axios.get(
-            `http://35.219.64.188/search/${methodGiven}`,
+            `${process.env.NEXT_PUBLIC_API_URL}/search/${methodGiven}`,
             {
               params: {
                 query: queryGiven,

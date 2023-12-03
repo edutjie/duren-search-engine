@@ -3,13 +3,7 @@
 import React, { useCallback } from "react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import {
-  Button,
-  TextField,
-  Dropdown,
-  Container,
-} from "../../components/elements";
-import { Pagination } from "@mui/material";
+import { Button, Container } from "../../components/elements";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -34,7 +28,7 @@ export default function Details() {
     if (doc_idGiven) {
       try {
         const response = await axios.get(
-          `http://35.219.64.188/document/${doc_idGiven}`
+          `${process.env.NEXT_PUBLIC_API_URL}/document/${doc_idGiven}`
         );
         setDocumentDetail(response.data);
         console.log("Search success:", response.data);
@@ -51,7 +45,7 @@ export default function Details() {
     if (doc_idGiven) {
       try {
         const response = await axios.get(
-          `http://35.219.64.188/related/${doc_idGiven}`
+          `${process.env.NEXT_PUBLIC_API_URL}/related/${doc_idGiven}`
         );
         setRelDocsList(response.data.data);
         console.log("Search success:", response.data);
