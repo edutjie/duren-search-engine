@@ -75,7 +75,15 @@ export default function Result() {
           createQueryString("method", lowercaseMethod)
       );
     } catch (error) {
-      // Handle errors
+      console.error("Search error:", error);
+    }
+  };
+
+  const handleDocumentClick = (doc_id: string) => {
+    try {
+      router.push("/details" + "?" + createQueryString("doc_id", doc_id));
+      // console.log(doc_id);
+    } catch (error) {
       console.error("Search error:", error);
     }
   };
@@ -93,10 +101,12 @@ export default function Result() {
                 query: queryGiven,
                 is_letor: true,
                 page: pageGiven,
+                device_id: localStorage.getItem("device_id"),
               },
             }
           );
           setSearchResult(response.data.data);
+          searchParams.delete();
           console.log("Search success:", response.data);
         } else {
           const response = await axios.get(
@@ -106,10 +116,12 @@ export default function Result() {
                 query: queryGiven,
                 is_letor: false,
                 page: pageGiven,
+                device_id: localStorage.getItem("device_id"),
               },
             }
           );
           setSearchResult(response.data.data);
+          searchParams.delete();
           console.log("Search success:", response.data);
         }
       } catch (error) {
@@ -180,7 +192,10 @@ export default function Result() {
                   strokeWidth="2"
                 />
               </svg>
-              <Button className="py-2 px-5" onClick={handleSearchClick}>
+              <Button
+                className="bg-primaryText py-2 px-5"
+                onClick={handleSearchClick}
+              >
                 Search
               </Button>
             </div>
@@ -206,11 +221,18 @@ export default function Result() {
             alt="Cradren Fast"
             width={70}
             height={70}
+            onClick={() => {
+              router.push("/");
+            }}
           ></Image>
         </div>
         <div className="flex flex-col w-full justify-center items-center gap-4">
           {searchResult.map((result, index) => (
-            <div className="flex w-[70%] gap-4" key={index}>
+            <div
+              className="flex w-[70%] gap-4"
+              key={index}
+              onClick={() => handleDocumentClick(result.id)}
+            >
               <Container className="flex w-full">
                 <div className="text-primaryText text-base font-bold">
                   {result.title}

@@ -11,7 +11,7 @@ export const Container: React.FC<ContainerProps> = ({
     <>
       <div
         onClick={onClick}
-        className={`${className} px-6 py-4 bg-primaryContainer rounded-xl flex-row justify-start items-center gap-4 inline-flex ${
+        className={`px-6 py-4 bg-primaryContainer rounded-xl flex-row justify-start items-center gap-4 inline-flex ${className} ${
           isLoading
             ? "border-black disabled:bg-orange-dark"
             : "disabled:bg-cream-normal"
