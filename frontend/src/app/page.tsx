@@ -13,7 +13,7 @@ export default function Home() {
   const [dateTime, setDateTime] = useState(new Date());
   const [searchValue, setSearchValue] = useState("");
   const [methodValue, setMethodValue] = useState("");
-  const [historyData, setHistoryData] = useState<HistoryProps>({});
+  const [historyData, setHistoryData] = useState<Array<HistoryProps>>([]);
 
   useEffect(() => {
     const deviceId = localStorage.getItem("device_id");
@@ -163,12 +163,12 @@ export default function Home() {
       </div>
       <div className="w-[25%] h-[500px] overflow-y-auto rounded-2xl">
         <div className="flex flex-col w-full justify-center items-center gap-4">
-          {Object.keys(historyData).map(dateKey => (
-            <Container className="flex-col w-full gap-2" key={dateKey}>
+          {historyData.map(data => (
+            <Container className="flex-col w-full gap-2" key={data.date}>
               <div className="text-primaryText text-lg font-bold">
-                {dateKey}
+                {data.date}
               </div>
-              {historyData[dateKey].map((item, index) => (
+              {data.queries.map((item, index) => (
                 <div className="flex w-full" key={index}>
                   <div className="flex w-full justify-between gap-4">
                     <div className="text-stone-500 text-base font-semibold">
