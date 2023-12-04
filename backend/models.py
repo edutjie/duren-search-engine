@@ -7,6 +7,7 @@ class Document(BaseModel):
     preview: str | None = None
     score: float | None = None
 
+
 class DocumentDetail(Document):
     content: str
 
@@ -17,3 +18,17 @@ class PaginatedDocuments(BaseModel):
     per_page: int
     total: int
     data: list[Document]
+
+
+class SearchHistoryQuery(BaseModel):
+    query: str
+    time: str
+
+
+class SearchHistory(BaseModel):
+    date: str
+    queries: list[SearchHistoryQuery | None]
+
+
+class SearchHistoryResponse(BaseModel):
+    data: list[SearchHistory | None]

@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useCallback } from "react";
+import axios from "axios";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { Button, TextField, Dropdown, Container } from "../components/elements";
-import axios from "axios";
+import React, { useEffect, useState } from "react";
+import { Button, Container, Dropdown, TextField } from "../components/elements";
+import { HistoryProps } from "./interfaces";
 
 export default function Home() {
   const router = useRouter();
@@ -13,7 +13,7 @@ export default function Home() {
   const [dateTime, setDateTime] = useState(new Date());
   const [searchValue, setSearchValue] = useState("");
   const [methodValue, setMethodValue] = useState("");
-  const [historyData, setHistoryData] = useState({});
+  const [historyData, setHistoryData] = useState<HistoryProps>({});
 
   useEffect(() => {
     const deviceId = localStorage.getItem("device_id");
@@ -51,28 +51,18 @@ export default function Home() {
     setMethodValue(selectedMethod);
   };
 
-  const createQueryString = useCallback(
-    (name: string, value: string) => {
-      const params = new URLSearchParams(searchParams);
-      params.set(name, value);
-
-      return params.toString();
-    },
-    [searchParams]
-  );
-
   const handleSearchClick = async () => {
     try {
       const sanitizedMethod = methodValue.replace(/-/g, "");
       const lowercaseMethod = sanitizedMethod.toLowerCase();
 
-      router.push(
-        "/result" +
-          "?" +
-          createQueryString("query", searchValue) +
-          "&" +
-          createQueryString("method", lowercaseMethod)
-      );
+      const params = new URLSearchParams(searchParams);
+      params.delete("query");
+      params.delete("method");
+      params.set("query", searchValue);
+      params.set("method", !!lowercaseMethod ? lowercaseMethod : "bm25");
+
+      router.push("/result" + "?" + params.toString());
     } catch (error) {
       // Handle errors
       console.error("Search error:", error);
@@ -81,11 +71,15 @@ export default function Home() {
 
   const handleHistory = async () => {
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/history`, {
-        params: {
-          device_id: localStorage.getItem("device_id"),
-        },
-      });
+      const deviceId = localStorage.getItem("device_id");
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/history`,
+        {
+          params: {
+            device_id: deviceId,
+          },
+        }
+      );
       setHistoryData(response.data.data);
       console.log("History success:", response.data);
     } catch (error) {
@@ -105,7 +99,6 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen items-center justify-center gap-8 p-24 bg-primary">
-      
       <div className="w-full flex flex-col items-center justify-center gap-5">
         <div className="flex flex-col gap-2 items-center">
           <div
@@ -170,9 +163,11 @@ export default function Home() {
       </div>
       <div className="w-[25%] h-[500px] overflow-y-auto rounded-2xl">
         <div className="flex flex-col w-full justify-center items-center gap-4">
-          {Object.keys(historyData).map((dateKey) => (
+          {Object.keys(historyData).map(dateKey => (
             <Container className="flex-col w-full gap-2" key={dateKey}>
-              <div className="text-primaryText text-lg font-bold">{dateKey}</div>
+              <div className="text-primaryText text-lg font-bold">
+                {dateKey}
+              </div>
               {historyData[dateKey].map((item, index) => (
                 <div className="flex w-full" key={index}>
                   <div className="flex w-full justify-between gap-4">

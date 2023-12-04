@@ -196,7 +196,8 @@ async def get_relevant_documents_bm25(
 
     if device_id:
         # save to history
-        set_history(device_id, query)
+        print("Device", device_id, "searched", query)
+        await set_history(device_id, query)
 
     return paginate(documents, page, limit)
 
@@ -242,9 +243,18 @@ async def get_related_documents(
 
 
 @app.get("/history")
-async def get_search_history(device_id: str):
+async def get_search_history(device_id: str) -> models.SearchHistoryResponse:
     keys = f"history:{device_id}"
     history = await redis.get(keys)
     if history:
-        return {"data": json.loads(history)}
+        # convert dict to list of dict sorted by date (desc)
+        history = json.loads(history)
+        history_list = []
+        for date, queries in sorted(
+            history.items(),
+            key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"),
+            reverse=True,
+        ):
+            history_list.append({"date": date, "queries": queries})
+        return {"data": history_list}
     return {"data": []}

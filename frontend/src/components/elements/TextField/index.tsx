@@ -1,7 +1,7 @@
-import React from "react";
-import { TextFieldProps } from "./interface";
-import { MdOutlineSearch } from "react-icons/md";
 import Image from "next/image";
+import React from "react";
+import { MdOutlineSearch } from "react-icons/md";
+import { TextFieldProps } from "./interface";
 
 export const TextField: React.FC<TextFieldProps> = ({
   className,
@@ -34,7 +34,7 @@ export const TextField: React.FC<TextFieldProps> = ({
                 x2="0.5"
                 y2="0.5"
                 stroke="#CBE04C"
-                stroke-width="2"
+                strokeWidth="2"
               />
             </svg>
           </div>

@@ -1,28 +1,28 @@
 "use client";
 
-import React, { useCallback } from "react";
-import Image from "next/image";
-import { useState, useEffect } from "react";
-import {
-  Button,
-  TextField,
-  Dropdown,
-  Container,
-} from "../../components/elements";
 import { Pagination } from "@mui/material";
 import axios from "axios";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import {
+  Button,
+  Container,
+  Dropdown,
+  TextField,
+} from "../../components/elements";
+import { SearchResultProps } from "./interfaces";
 
 export default function Result() {
-  const [dateTime, setDateTime] = useState(new Date());
-  const [searchValue, setSearchValue] = useState("");
-  const [methodValue, setMethodValue] = useState("");
-  const [searchResult, setSearchResult] = useState([]);
+  const [dateTime, setDateTime] = useState<Date>(new Date());
+  const [searchValue, setSearchValue] = useState<string>("");
+  const [methodValue, setMethodValue] = useState<string>("");
+  const [searchResult, setSearchResult] = useState<Array<SearchResultProps>>(
+    []
+  );
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const methodGiven = searchParams.get("method");
-  const queryGiven = searchParams.get("query");
   let pageGiven = "1";
 
   const hour = dateTime.getHours();
@@ -52,29 +52,18 @@ export default function Result() {
     setMethodValue(selectedMethod);
   };
 
-  const createQueryString = useCallback(
-    (name: string, value: string) => {
-      const params = new URLSearchParams(searchParams);
-      params.set(name, value);
-
-      return params.toString();
-    },
-    [searchParams]
-  );
-
   const handleSearchClick = () => {
     try {
       const sanitizedMethod = methodValue.replace(/-/g, "");
       const lowercaseMethod = sanitizedMethod.toLowerCase();
-      searchParams.delete()
 
-      router.push(
-        "/result" +
-          "?" +
-          createQueryString("query", searchValue) +
-          "&" +
-          createQueryString("method", lowercaseMethod)
-      );
+      const params = new URLSearchParams(searchParams);
+      params.delete("query");
+      params.delete("method");
+      params.set("query", searchValue);
+      params.set("method", !!lowercaseMethod ? lowercaseMethod : "bm25");
+
+      router.push("/result" + "?" + params.toString());
     } catch (error) {
       console.error("Search error:", error);
     }
@@ -82,7 +71,10 @@ export default function Result() {
 
   const handleDocumentClick = (doc_id: string) => {
     try {
-      router.push("/details" + "?" + createQueryString("doc_id", doc_id));
+      const params = new URLSearchParams(searchParams);
+      params.delete("doc_id");
+      params.set("doc_id", doc_id);
+      router.push("/details" + "?" + params.toString());
       // console.log(doc_id);
     } catch (error) {
       console.error("Search error:", error);
@@ -90,53 +82,51 @@ export default function Result() {
   };
 
   const handleSearchResult = async () => {
-    if (methodGiven) {
-      try {
-        if (methodGiven.includes("+")) {
-          const substring = methodGiven.split("+");
-          const method = substring[0];
-          const response = await axios.get(
-            `${process.env.NEXT_PUBLIC_API_URL}/search/${method}`,
-            {
-              params: {
-                query: queryGiven,
-                is_letor: true,
-                page: pageGiven,
-                device_id: localStorage.getItem("device_id"),
-              },
-            }
-          );
-          setSearchResult(response.data.data);
-          searchParams.delete();
-          console.log("Search success:", response.data);
-        } else {
-          const response = await axios.get(
-            `${process.env.NEXT_PUBLIC_API_URL}/search/${methodGiven}`,
-            {
-              params: {
-                query: queryGiven,
-                is_letor: false,
-                page: pageGiven,
-                device_id: localStorage.getItem("device_id"),
-              },
-            }
-          );
-          setSearchResult(response.data.data);
-          searchParams.delete();
-          console.log("Search success:", response.data);
-        }
-      } catch (error) {
-        // Handle errors
-        console.error("Search error:", error);
+    const methodGiven = searchParams.get("method");
+    const queryGiven = searchParams.get("query");
+    try {
+      const deviceId = localStorage.getItem("device_id");
+      console.log(deviceId)
+      if (methodGiven?.includes("+")) {
+        const substring = methodGiven.split("+");
+        const method = substring[0];
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/search/${method}`,
+          {
+            params: {
+              query: queryGiven,
+              is_letor: true,
+              page: pageGiven,
+              device_id: deviceId,
+            },
+          }
+        );
+        setSearchResult(response.data.data);
+        console.log("Search success:", response.data);
+      } else {
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/search/${methodGiven}`,
+          {
+            params: {
+              query: queryGiven,
+              is_letor: false,
+              page: pageGiven,
+              device_id: deviceId,
+            },
+          }
+        );
+        setSearchResult(response.data.data);
+        console.log("Search success:", response.data);
       }
-    } else {
-      console.log("Search error: No method given");
+    } catch (error) {
+      // Handle errors
+      console.error("Search error:", error);
     }
   };
 
   useEffect(() => {
     handleSearchResult();
-  }, []);
+  }, [searchParams]);
 
   const handlePaginationChange = (
     event: React.ChangeEvent<unknown>,
