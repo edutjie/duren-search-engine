@@ -66,6 +66,7 @@ export default function Result() {
     try {
       const sanitizedMethod = methodValue.replace(/-/g, "");
       const lowercaseMethod = sanitizedMethod.toLowerCase();
+      searchParams.delete()
 
       router.push(
         "/result" +

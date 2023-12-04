@@ -78,6 +78,7 @@ export default function Details() {
 
   const handleDocumentClick = (doc_id: string) => {
     try {
+      searchParams.delete();
       router.push("/details" + "?" + createQueryString("doc_id", doc_id));
       // console.log(doc_id);
     } catch (error) {
