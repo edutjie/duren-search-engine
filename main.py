@@ -66,8 +66,8 @@ async def set_history(device_id, query) -> None:
         history = json.loads(cache)
     else:
         history = defaultdict(list)
-    history[today.strftime("%Y-%m-%d")].append(
-        {"query": query, "time": datetime.now().strftime("%Y-%m-%d %H-%M-%S")}
+    history[today.strftime("%Y-%m-%d")].insert(
+        0, {"query": query, "time": datetime.now().strftime("%Y-%m-%d %H-%M-%S")}
     )
     await redis.set(keys, json.dumps(history), ex=ONE_WEEK)
 
