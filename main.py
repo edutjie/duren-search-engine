@@ -63,7 +63,7 @@ async def set_history(device_id, query) -> None:
     today = datetime.today()
     cache = await redis.get(keys)
     if cache:
-        history = json.loads(cache)
+        history = defaultdict(list, json.loads(cache))
     else:
         history = defaultdict(list)
     history[today.strftime("%Y-%m-%d")].insert(
