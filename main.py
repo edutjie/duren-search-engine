@@ -133,14 +133,12 @@ async def get_relevant_documents_tfidf(
         if cache:
             documents = json.loads(cache)
         else:
-            if len(tfid_scores) == 0:
-                documents = []
-            else:
-                tfidf_df = pd.DataFrame(tfid_scores, columns=["score", "doc_path"])
-                tfid_scores = letor.rerank(query, tfidf_df)
+            if len(documents) > 0:
+                tfidf_df = pd.DataFrame(documents, columns=["score", "doc_path"])
+                documents = letor.rerank(query, tfidf_df)
 
                 # convert to docs
-                documents = get_documents(tfid_scores)
+                documents = get_documents(documents)
 
                 # save to cache
                 background_tasks.add_task(set_cache, documents, keys)
@@ -182,14 +180,12 @@ async def get_relevant_documents_bm25(
         if cache:
             documents = json.loads(cache)
         else:
-            if len(bm25_scores) == 0:
-                documents = []
-            else:
-                bm25_df = pd.DataFrame(bm25_scores, columns=["score", "doc_path"])
-                bm25_scores = letor.rerank(query, bm25_df)
+            if len(documents) > 0:
+                bm25_df = pd.DataFrame(documents, columns=["score", "doc_path"])
+                documents = letor.rerank(query, bm25_df)
 
                 # convert to docs
-                documents = get_documents(bm25_scores)
+                documents = get_documents(documents)
 
                 # save to cache
                 background_tasks.add_task(set_cache, documents, keys)
