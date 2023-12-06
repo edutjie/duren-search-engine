@@ -117,31 +117,27 @@ async def get_relevant_documents_tfidf(
     keys = f"tfidf:{query}-k:{k}-limit:{limit}"
     cache = await redis.get(keys)
     if cache:
-        documents = json.loads(cache)
+        tfid_scores = json.loads(cache)
     else:
         tfid_scores = BSBI_instance.retrieve_tfidf(query, k=k)  # [(score, doc_id)]
 
-        # convert to docs
-        documents = get_documents(tfid_scores)
-
         # save to cache
-        background_tasks.add_task(set_cache, documents, keys)
+        background_tasks.add_task(set_cache, tfid_scores, keys)
 
     if is_letor:
         keys = f"tfidf-letor:{query}-k:{k}-limit:{limit}"
         cache = await redis.get(keys)
         if cache:
-            documents = json.loads(cache)
-        else:
-            if len(documents) > 0:
-                tfidf_df = pd.DataFrame(documents, columns=["score", "doc_path"])
-                documents = letor.rerank(query, tfidf_df)
+            tfid_scores = json.loads(cache)
+        elif len(tfid_scores) > 0:
+            tfidf_df = pd.DataFrame(tfid_scores, columns=["score", "doc_path"])
+            tfid_scores = letor.rerank(query, tfidf_df)
 
-                # convert to docs
-                documents = get_documents(documents)
+            # save to cache
+            background_tasks.add_task(set_cache, tfid_scores, keys)
 
-                # save to cache
-                background_tasks.add_task(set_cache, documents, keys)
+    # convert to docs
+    documents = get_documents(tfid_scores)
 
     if device_id:
         # save to history
@@ -164,31 +160,27 @@ async def get_relevant_documents_bm25(
     keys = f"bm25:{query}-k:{k}-limit:{limit}"
     cache = await redis.get(keys)
     if cache:
-        documents = json.loads(cache)
+        bm25_scores = json.loads(cache)
     else:
         bm25_scores = BSBI_instance.retrieve_bm25(query, k=k)  # [(score, doc_id)]
 
-        # convert to dict
-        documents = get_documents(bm25_scores)
-
         # save to cache
-        background_tasks.add_task(set_cache, documents, keys)
+        background_tasks.add_task(set_cache, bm25_scores, keys)
 
     if is_letor:
         keys = f"bm25-letor:{query}-k:{k}-limit:{limit}"
         cache = await redis.get(keys)
         if cache:
-            documents = json.loads(cache)
-        else:
-            if len(documents) > 0:
-                bm25_df = pd.DataFrame(documents, columns=["score", "doc_path"])
-                documents = letor.rerank(query, bm25_df)
+            bm25_scores = json.loads(cache)
+        elif len(bm25_scores) > 0:
+            bm25_df = pd.DataFrame(bm25_scores, columns=["score", "doc_path"])
+            bm25_scores = letor.rerank(query, bm25_df)
 
-                # convert to docs
-                documents = get_documents(documents)
+            # save to cache
+            background_tasks.add_task(set_cache, bm25_scores, keys)
 
-                # save to cache
-                background_tasks.add_task(set_cache, documents, keys)
+    # convert to docs
+    documents = get_documents(bm25_scores)
 
     if device_id:
         # save to history
